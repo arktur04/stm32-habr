@@ -35,10 +35,12 @@
 #include "stm32f7xx_hal.h"
 
 /* USER CODE BEGIN Includes */
-
+#include "math.h"
 /* USER CODE END Includes */
 
 /* Private variables ---------------------------------------------------------*/
+
+DAC_HandleTypeDef hdac;
 
 TIM_HandleTypeDef htim1;
 
@@ -51,6 +53,7 @@ TIM_HandleTypeDef htim1;
 void SystemClock_Config(void);
 void Error_Handler(void);
 static void MX_GPIO_Init(void);
+static void MX_DAC_Init(void);
 static void MX_TIM1_Init(void);
 
 /* USER CODE BEGIN PFP */
@@ -59,12 +62,30 @@ static void MX_TIM1_Init(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+volatile uint32_t * dac;
+#define N 3216
+#define DAC_SHIFT 2047
+static uint16_t cosine[N];
+const int delta = 1;
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-	if (htim->Instance==TIM1) //check if the interrupt comes from TIM1
-	{
-		HAL_GPIO_TogglePin(GreenLed_GPIO_Port, GreenLed_Pin); //Toggle the state of pin
-	}
+  static int val = 0;
+  static int phase = 0;
+  *(uint32_t*)(DAC_BASE + 0x00000008U) = val;
+  phase += delta;
+  phase = phase > N * 4 - 1 ? phase - N * 4 : phase;
+  if(phase < N) {
+    val = DAC_SHIFT + cosine[phase];
+  }
+  else if(phase < 2 * N) {
+    val = DAC_SHIFT - cosine[2 * N - 1 - phase];
+  }
+  else if(phase < 3 * N) {
+    val = DAC_SHIFT - cosine[phase - 2 * N];
+  }
+  else {
+    val = DAC_SHIFT + cosine[4 * N - 1 - phase];
+  }
 }
 /* USER CODE END 0 */
 
@@ -85,11 +106,17 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DAC_Init();
   MX_TIM1_Init();
 
   /* USER CODE BEGIN 2 */
-	//запуск таймера
-	HAL_TIM_Base_Start_IT(&htim1);
+  const float A = 2047;
+  const float PI = 3.1415927;
+  for(int i = 0; i < N; i++) {
+    cosine[i] = (uint16_t)(round(A * cos((i * PI) / (N * 2.0))));
+  }
+  HAL_TIM_Base_Start_IT(&htim1);
+  __HAL_DAC_ENABLE(&hdac, DAC_CHANNEL_1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -149,7 +176,7 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
   if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_7) != HAL_OK)
   {
@@ -165,7 +192,32 @@ void SystemClock_Config(void)
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 
   /* SysTick_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(SysTick_IRQn, 1, 0);
+}
+
+/* DAC init function */
+static void MX_DAC_Init(void)
+{
+
+  DAC_ChannelConfTypeDef sConfig;
+
+    /**DAC Initialization 
+    */
+  hdac.Instance = DAC;
+  if (HAL_DAC_Init(&hdac) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+    /**DAC channel OUT1 config 
+    */
+  sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
+  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+  if (HAL_DAC_ConfigChannel(&hdac, &sConfig, DAC_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
 }
 
 /* TIM1 init function */
@@ -176,11 +228,11 @@ static void MX_TIM1_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig;
 
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 53999;
+  htim1.Init.Prescaler = 107;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 999;
+  htim1.Init.Period = 3;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim1.Init.RepetitionCounter = 1;
+  htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
   {
@@ -203,30 +255,13 @@ static void MX_TIM1_Init(void)
 
 }
 
-/** Configure pins as 
-        * Analog 
-        * Input 
-        * Output
-        * EVENT_OUT
-        * EXTI
+/** Pinout Configuration
 */
 static void MX_GPIO_Init(void)
 {
 
-  GPIO_InitTypeDef GPIO_InitStruct;
-
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GreenLed_GPIO_Port, GreenLed_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : GreenLed_Pin */
-  GPIO_InitStruct.Pin = GreenLed_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GreenLed_GPIO_Port, &GPIO_InitStruct);
+  __HAL_RCC_GPIOA_CLK_ENABLE();
 
 }
 
