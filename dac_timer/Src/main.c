@@ -62,29 +62,43 @@ static void MX_TIM1_Init(void);
 /* USER CODE END PFP */
 
 /* USER CODE BEGIN 0 */
+//the phase is represented as a fixed point value
+//where low 16 bits are considered as a fractional part, and high 16 bits as a integer part
+
+// macro for conversion a fixed point value to an integer value. The value 0x8000 is added for rounding
+#define FIXED_TO_INT(x) ((x) >> 16)
+#define INT_TO_FIXED(x) ((x) << 16)
+
 volatile uint32_t * dac;
-#define N 3216
+//#define N 3216
+#define N 2500
 #define DAC_SHIFT 2047
-static uint16_t cosine[N];
-const int delta = 1;
+static uint16_t cosine[N + 1];
+//const uint32_t delta = 0x3333; // 0.2 -10 Hz
+//const uint32_t delta = 0x20000; // 2 -100 Hz
+//const uint32_t delta = 0x140000; // 20 -1 kHz
+//const uint32_t delta = 0xc80000; // 200 -10 kHz
+const uint32_t delta = 0x7d00000; // 2000 -100 kHz
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   static int val = 0;
-  static int phase = 0;
+  static uint32_t phase = 0;
   *(uint32_t*)(DAC_BASE + 0x00000008U) = val;
   phase += delta;
-  phase = phase > N * 4 - 1 ? phase - N * 4 : phase;
-  if(phase < N) {
-    val = DAC_SHIFT + cosine[phase];
+  phase = phase > INT_TO_FIXED(N * 4) - 1 ? phase - INT_TO_FIXED(N * 4): phase;
+  uint32_t intphase = FIXED_TO_INT(phase);
+  if(intphase < N) {
+    val = DAC_SHIFT + cosine[intphase];
   }
-  else if(phase < 2 * N) {
-    val = DAC_SHIFT - cosine[2 * N - 1 - phase];
+  else if(intphase < (2 * N)) {
+    val = DAC_SHIFT - cosine[2 * N - intphase];
   }
-  else if(phase < 3 * N) {
-    val = DAC_SHIFT - cosine[phase - 2 * N];
+  else if(intphase < (3 * N)) {
+    val = DAC_SHIFT - cosine[intphase - 2 * N];
   }
   else {
-    val = DAC_SHIFT + cosine[4 * N - 1 - phase];
+    val = DAC_SHIFT + cosine[4 * N - intphase];
   }
 }
 /* USER CODE END 0 */
@@ -112,8 +126,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
   const float A = 2047;
   const float PI = 3.1415927;
-  for(int i = 0; i < N; i++) {
-    cosine[i] = (uint16_t)(round(A * cos((i * PI) / (N * 2.0))));
+  for(int i = 0; i < N + 1; i++) {
+    cosine[i] = (uint16_t)(round(A * cos((i * PI) / ((N + 1) * 2.0))));
   }
   HAL_TIM_Base_Start_IT(&htim1);
   __HAL_DAC_ENABLE(&hdac, DAC_CHANNEL_1);
@@ -228,9 +242,9 @@ static void MX_TIM1_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig;
 
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 107;
+  htim1.Init.Prescaler = 215;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 3;
+  htim1.Init.Period = 1;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;

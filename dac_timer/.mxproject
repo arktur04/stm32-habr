@@ -1,7 +1,7 @@
 [PreviousGenFiles]
-HeaderPath=C:/Users/V/Desktop/Stm32-1/dac_timer/Inc
+HeaderPath=C:/Users/V/Desktop/stm32-habr/dac_timer/Inc
 HeaderFiles=stm32f7xx_it.h;stm32f7xx_hal_conf.h;main.h;
-SourcePath=C:/Users/V/Desktop/Stm32-1/dac_timer/Src
+SourcePath=C:/Users/V/Desktop/stm32-habr/dac_timer/Src
 SourceFiles=stm32f7xx_it.h;stm32f7xx_hal_conf.h;main.h;stm32f7xx_it.c;stm32f7xx_hal_msp.c;main.c;
 
 [PreviousLibFiles]
