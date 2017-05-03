@@ -1,7 +1,8 @@
 /**
   ******************************************************************************
-  * File Name          : main.h
-  * Description        : This file contains the common defines of the application
+  * @file           : USB_DEVICE
+  * @version        : v1.0_Cube
+  * @brief          : Header for usb_device file.
   ******************************************************************************
   *
   * Copyright (c) 2017 STMicroelectronics International N.V. 
@@ -39,29 +40,35 @@
   * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   *
   ******************************************************************************
-  */
+*/
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __MAIN_H
-#define __MAIN_H
-  /* Includes ------------------------------------------------------------------*/
+#ifndef __usb_device_H
+#define __usb_device_H
+#ifdef __cplusplus
+ extern "C" {
+#endif
 
-/* USER CODE BEGIN Includes */
+/* Includes ------------------------------------------------------------------*/
+#include "stm32f7xx.h"
+#include "stm32f7xx_hal.h"
+#include "usbd_def.h"
 
-/* USER CODE END Includes */
+extern USBD_HandleTypeDef hUsbDeviceFS;
 
-/* Private define ------------------------------------------------------------*/
+/* USB_Device init function */	
+void MX_USB_DEVICE_Init(void);
 
-/* USER CODE BEGIN Private defines */
-
-/* USER CODE END Private defines */
+#ifdef __cplusplus
+}
+#endif
+#endif /*__usb_device_H */
 
 /**
   * @}
-  */ 
+  */
 
 /**
   * @}
-*/ 
+  */
 
-#endif /* __MAIN_H */
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
